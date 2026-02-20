@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Trash2, Edit3, Plus, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
-const API_BASE = "http://localhost:3000/api/v1/users";
+const API_BASE = "http://localhost:3000/api/v2/users";
 
 const UserManager = () => {
     const [users, setUsers] = useState([]);
@@ -29,14 +29,13 @@ const UserManager = () => {
         try {
             const requestParams = { ...queryParams };
 
-            // 2. "Clean" the object: If there's no search value, remove the search keys
             if (!requestParams.searchValue || requestParams.searchValue.trim() === "") {
                 delete requestParams.searchKey;
                 delete requestParams.searchValue;
             }
             const res = await axios.get(API_BASE, { params: requestParams });
             setUsers(res.data.data);
-            setTotal(res.data.total);
+            setTotal(res.data.meta.totalRecords);
         } catch (err) {
             console.error("API Error:", err.response?.data || err.message);
         } finally {
@@ -51,18 +50,21 @@ const UserManager = () => {
         e.preventDefault();
         try {
             if (editingUser) {
-                const { id, requestHash, ...updateData } = formData; 
-                console.log(requestHash)
+                const { id, request_hash, ...updateData } = formData; 
+                console.log(request_hash)
                 await axios.put(`${API_BASE}/${id}`, updateData);
+
+                alert("User updated successfully");
             } else {
                 await axios.post(API_BASE, formData);
+                alert(`🎉 User created: ${formData.first_name} ${formData.last_name}`);
             }
             setShowModal(false);
             setFormData({ first_name: '', last_name: '', email: '', gender: '', status: 'Active' });
             fetchUsers();
         } catch (err) {
             console.log(formData)
-            console.log(err.response.data.message)
+            console.log(err.response?.data?.message)
             alert(err.response?.data?.message|| "Operation failed");
         }
     };
