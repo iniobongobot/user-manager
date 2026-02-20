@@ -52,7 +52,7 @@ const UserManager = () => {
         try {
             if (editingUser) {
                 const { id, requestHash, ...updateData } = formData; 
-
+                console.log(requestHash)
                 await axios.put(`${API_BASE}/${id}`, updateData);
             } else {
                 await axios.post(API_BASE, formData);
