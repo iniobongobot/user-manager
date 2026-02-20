@@ -221,7 +221,7 @@ app.delete('/api/v1/users/:id', (req, res) => {
         message: "User successfully decommissioned",
         method: req.method,
         details: {
-            id: id,
+            id: rawId,
             hostname: deletedUser.hostname,
             status: "Deleted"
         }
