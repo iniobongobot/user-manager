@@ -36,9 +36,9 @@ jobs:
 
       # --- DATABASE ---
       - name: Run Database Secrets Tests
-      env:
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_SERVER: ${{ secrets.DB_SERVER }}
-        DB_NAME: ${{ secrets.DB_NAME }}
-      run: npm test
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: npm test
