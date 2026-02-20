@@ -10,9 +10,9 @@ A User tracking application built with **React (Vite)** and **Node.js (Express)*
 * **Security:** Request hashing for integrity and GUID (UUID v4) generation for unique identifiers.
 * **Modern Stack:** Fully converted to ES Modules (ESM) running on Node v24.
 
-## 🛠️ Tech Stack
+## Tech Stack
 - **Frontend:** React 18, Vite, Bootstrap 5, Lucide Icons.
-- **Backend:** Node.js, Express, Joi (Validation).
+- **Backend:** Node.js, Express, Joi (Validation), crpto (Request Hashing).
 - **Architecture:** REST API with middleware-based validation.
 
 ## 📦 Installation & Setup
