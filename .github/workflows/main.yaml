@@ -85,11 +85,11 @@ jobs:
     if: github.ref == 'refs/heads/v2'
 
     steps:
-      - uses: actions/checkout@v4
+        - uses: actions/checkout@v4
 
-      - name: Commit and Push to 'production' branch
-      uses: ad-m/github-push-action@master
-      with:
+        - name: Commit and Push to 'production' branch
+        uses: ad-m/github-push-action@master
+        with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         branch: main
         force: true
