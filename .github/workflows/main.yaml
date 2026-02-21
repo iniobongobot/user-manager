@@ -7,38 +7,73 @@ on:
     branches: ['**']
 
 jobs:
-  lint-and-test:
+  full-integration:
     runs-on: ubuntu-latest
+    
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          SA_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ACCEPT_EULA: "Y"
+        ports:
+          - 1433:1433
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: '20'cache: 'npm'
           cache-dependency-path: |
             server/package-lock.json
             client/package-lock.json
 
-      # --- BACKEND LINT ---
+# --- 1. BACKEND: Install & Lint ---
       - name: Install Backend Deps
         run: cd server && npm install
+
       - name: Lint Backend
         run: cd server && npx eslint .
 
-      # --- FRONTEND LINT & BUILD ---
+      # --- 2. FRONTEND: Install, Lint & Build ---
       - name: Install Frontend Deps
         run: cd client && npm install
+
       - name: Lint Frontend
         run: cd client && npm run lint
+
       - name: Build Frontend
         run: cd client && npm run build --if-present
 
-      # --- DATABASE ---
-      - name: Run Database Secrets Tests
+      # --- 3. DATABASE: Setup & Seed ---
+      - name: Wait for SQL Server and Create Schema
+        run: |
+          echo "Waiting for SQL Server..."
+          timeout 60s bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/localhost/1433; do sleep 2; done'
+          
+          docker exec $(docker ps -qf "ancestor=mcr.microsoft.com/mssql/server:2022-latest") /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${{ secrets.DB_PASSWORD }}" -C -Q "
+          IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'UserAssetDB') CREATE DATABASE UserAssetDB;
+          GO
+          USE UserAssetDB;
+          CREATE TABLE records (
+            id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+            first_name NVARCHAR(100),
+            last_name NVARCHAR(100),
+            email NVARCHAR(255) UNIQUE,
+            gender NVARCHAR(50),
+            status NVARCHAR(50),
+            request_hash NVARCHAR(255)
+          );"
+
+      # --- 4. TESTS: Run API Tests ---
+      - name: Run Backend Integration Tests
         env:
-          DB_USER: ${{ secrets.DB_USER }}
+          NODE_OPTIONS: "--experimental-vm-modules"
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_SERVER: ${{ secrets.DB_SERVER }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: "sa"
+          DB_SERVER: "localhost"
+          DB_NAME: "UserAssetDB"
+          NODE_ENV: "test"
         run: cd server && npm test
