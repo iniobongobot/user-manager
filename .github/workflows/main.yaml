@@ -31,14 +31,14 @@ jobs:
             server/package-lock.json
             client/package-lock.json
 
-      # --- 1. BACKEND: Install & Lint ---
+      # SERVER: Installing Lint and Test Deps
       - name: Install Backend Deps
         run: cd server && npm install
 
       - name: Lint Backend
         run: cd server && npx eslint .
 
-      # --- 2. FRONTEND: Install, Lint & Build ---
+      # CLIENT: Install, Lint & Build
       - name: Install Frontend Deps
         run: cd client && npm install
 
@@ -48,7 +48,7 @@ jobs:
       - name: Build Frontend
         run: cd client && npm run build --if-present
 
-      # --- 3. DATABASE: Setup & Seed ---
+      # DATABASE: Setting up
       - name: Wait for SQL Server and Create Schema
         run: |
           echo "Waiting for SQL Server..."
@@ -68,7 +68,7 @@ jobs:
             request_hash NVARCHAR(255)
           );"
 
-      # --- 4. TESTS: Run API Tests ---
+      # TEST: Running Tests
       - name: Run Backend Integration Tests
         env:
           NODE_OPTIONS: "--experimental-vm-modules"
@@ -78,18 +78,3 @@ jobs:
           DB_NAME: "UserAssetDB"
           NODE_ENV: "test"
         run: cd server && npm test
-  
-  deploy-to-branch:
-    needs: full-integration
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/v2'
-
-    steps:
-        - uses: actions/checkout@v4
-
-        - name: Commit and Push to 'production' branch
-          uses: ad-m/github-push-action@master
-          with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
-            branch: main
-            force: true
