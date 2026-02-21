@@ -17,7 +17,8 @@ app.post('/api/v2/users', validateRequest, async (req, res) => {
         const { value } = userSchema.validate(req.body);
         const { first_name, last_name, email, gender, status } = value;
         
-        const hash = generateHash(req.body);
+        const   {status: _, ...hashBody} = req.body
+        const hash = generateHash(hashBody);
 
         const pool = await poolPromise;
         const result = await pool.request()
@@ -101,9 +102,10 @@ try {
             whereClause = `WHERE first_name LIKE @search 
             OR last_name LIKE @search 
             OR email LIKE @search
-            OR gender LIKE @search
-            OR status LIKE @search`;
+            OR gender = @exact
+            OR status = @exact`;
             request.input('search', sql.NVarChar, `%${finalSearch}%`);
+            request.input('exact', sql.NVarChar, finalSearch);
         }
 
         else if (searchKey && searchValue) {
@@ -251,7 +253,8 @@ app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
         }
 
         // 2. Generate new hash based on updated data
-        const newHash = generateHash(value);
+        const   {status: _, ...hashBody} = value;
+        const newHash = generateHash(hashBody);
 
         const pool = await poolPromise;
 
