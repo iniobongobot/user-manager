@@ -8,12 +8,12 @@ dotenv.config();
 const config = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER, // e.g., 'localhost'
+    server: process.env.DB_SERVER, 
     database: process.env.DB_NAME, 
     options: {
-        instanceName: process.env.DB_INSTANCE, // 'SQLEXPRESS'
+        ...(process.env.DB_INSTANCE && { instanceName: process.env.DB_INSTANCE }),
         encrypt: true,
-        trustServerCertificate: true, // Required for local self-signed certs
+        trustServerCertificate: true,
         enableArithAbort: true
     },
     pool: {
