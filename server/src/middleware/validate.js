@@ -14,10 +14,6 @@ const userSchema = Joi.object({
 });
 
 
-const getAvailableKeys = () => {
-    return Object.keys(userSchema.describe().keys);
-};
-
 function validateRequest(req, res, next) {
     const { error } = userSchema.validate(req.body, { abortEarly: false });
     if (error) {
@@ -31,5 +27,5 @@ function validateRequest(req, res, next) {
 
 export {
     validateRequest,
-    getAvailableKeys
+    userSchema
 };

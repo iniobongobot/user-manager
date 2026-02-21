@@ -1,0 +1,37 @@
+name: MS SQL Server Integration Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          SA_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ACCEPT_EULA: "Y"
+        ports:
+          - 1433:1433
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Tests
+        # Step 2: Inject the experimental flag and DB credentials
+        env:
+          NODE_OPTIONS: "--experimental-vm-modules"
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SERVER: "localhost"
+          DB_NAME: "UserAssetDB"
+          NODE_ENV: "test"
+        run: npm test

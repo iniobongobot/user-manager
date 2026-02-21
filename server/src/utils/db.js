@@ -32,7 +32,9 @@ export const poolPromise = new sql.ConnectionPool(config)
     })
     .catch(err => {
         console.error('Database Connection Failed!', err);
-        process.exit(1); 
+        if (process.env.NODE_ENV !== 'test') {
+            process.exit(1);
+        }
     });
 
 export { sql };

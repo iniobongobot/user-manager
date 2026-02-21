@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
-import { validateRequest, getAvailableKeys } from './middleware/validate.js';
+import { validateRequest, userSchema } from './middleware/validate.js';
 import { generateHash } from './utils/hasher.js';
 import { poolPromise, sql } from './utils/db.js';
 
@@ -14,13 +14,13 @@ app.use(cors());
 // This POST is for creating new records.
 app.post('/api/v2/users', validateRequest, async (req, res) => {
     try {
-        const { first_name, last_name, email, gender, status } = req.body;
+        const { value } = userSchema.validate(req.body);
+        const { first_name, last_name, email, gender, status } = value;
         
         const hash = generateHash(req.body);
 
         const pool = await poolPromise;
-
-        await pool.request()
+        const result = await pool.request()
             .input('first_name', sql.NVarChar, first_name)
             .input('last_name', sql.NVarChar, last_name)
             .input('email', sql.NVarChar, email)
@@ -29,12 +29,16 @@ app.post('/api/v2/users', validateRequest, async (req, res) => {
             .input('hash', sql.NVarChar, hash)
             .query(`
                 INSERT INTO records (first_name, last_name, email, gender, status, request_hash)
+                OUTPUT inserted.id
                 VALUES (@first_name, @last_name, @email, @gender, @status, @hash)
             `);
 
+        // result.recordset will contain the output of the inserted.id
+        const newId = result.recordset[0].id;
+
         res.status(201).json({
             message: "User created successfully",
-            data: { ...req.body, request_hash: hash }
+            data: { id: newId, ...value, request_hash: hash }
         });
 
     } catch (err) {
@@ -225,7 +229,8 @@ app.delete('/api/v2/users/:id', async (req, res) => {
 app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
     try {
         const { id } = req.params;
-        const { first_name, last_name, email, gender, status } = req.body;
+        const { value } = userSchema.validate(req.body);
+        const { first_name, last_name, email, gender, status } = value;
 
         // 1. Gatekeeper: UUID Format Validation
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -234,7 +239,7 @@ app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
         }
 
         // 2. Generate new hash based on updated data
-        const newHash = generateHash(req.body);
+        const newHash = generateHash(value);
 
         const pool = await poolPromise;
 
@@ -266,7 +271,7 @@ app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
             });
         }
 
-        res.json({
+        res.status(200).json({
             message: "User updated successfully",
             data: { id, ...req.body, request_hash: newHash }
         });
@@ -287,19 +292,6 @@ app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
 
 // ************************************************************************************
 
-
-const PORT = 3000;
-app.listen(PORT, () => 
-    console.log(`SAS Interview Test Server running on http://localhost:${PORT}`),
-    console.log(`Available API Endpoints:
-    POST   /api/v2/users       - Create a new user
-    GET    /api/v2/users       - Get all users (supports pagination, sorting, and searching)
-    GET    /api/v2/users/:id   - Get a single user by ID
-    PUT    /api/v2/users/:id   - Update a user by ID
-    DELETE /api/v2/users/:id   - Delete a user by ID`)     
-        
-    );
-
 app.use((req, res) => {
     res.status(404).json({
         error: "Endpoint Not Found",
@@ -308,6 +300,5 @@ app.use((req, res) => {
         message: `The ${req.method} request to ${req.originalUrl} is invalid. If you are attempting to UPDATE or DELETE, ensure the numeric ID is appended to the URL (e.g., /api/v2/users/1).`
     });
 });
-
 
 export { app };

@@ -15,8 +15,8 @@ const UserManager = () => {
         limit: 10,
         searchKey: 'first_name',
         searchValue: '',
-        sort: 'first_name',
-        order: 'asc'
+        sortField: 'first_name',
+        sortOrder: 'asc'
     });
 
     // Modal State
@@ -129,11 +129,11 @@ const UserManager = () => {
                             <th 
                                 key={key} 
                                 className="px-4 py-3 text-uppercase fs-7 fw-bold text-muted cursor-pointer"
-                                onClick={() => setQueryParams({...queryParams, sort: key, order: queryParams.order === 'asc' ? 'desc' : 'asc'})}
+                                onClick={() => setQueryParams({...queryParams, sortField: key, sortOrder: queryParams.sortOrder === 'asc' ? 'desc' : 'asc'})}
                             >
                                 {key.replace('_', ' ')} 
                                 <span className="ms-1 text-primary">
-                                    {queryParams.sort === key && (queryParams.order === 'asc' ? '↑' : '↓')}
+                                    {queryParams.sortField === key && (queryParams.sortOrder === 'asc' ? '↑' : '↓')}
                                 </span>
                             </th>
                         ))}

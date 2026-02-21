@@ -5,8 +5,13 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js","build": "echo 'No build step required'",
-    "test": "node test/test.js"
+    "dev": "nodemon src/server.js",
+    "build": "echo 'No build step required'",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit --detectOpenHandles"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/test/*.test.js"]
   },
   "keywords": [],
   "author": "",
