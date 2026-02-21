@@ -13,7 +13,7 @@ const UserManager = () => {
     const [queryParams, setQueryParams] = useState({
         page: 1,
         limit: 10,
-        searchKey: 'first_name',
+        searchKey: 'all',
         searchValue: '',
         sortField: 'first_name',
         sortOrder: 'asc'
@@ -86,13 +86,14 @@ const UserManager = () => {
     {/* Header & Search Bar */}
     <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
         <div className="input-group w-auto shadow-sm">
-            <span className="input-group-text bg-white"><Search size={18} /></span>
+            <span className="input-group-text bg-white"><Search size={30} /></span>
             <select 
                 className="form-select border-start-0"
                 style={{ width: 'auto' }}
                 value={queryParams.searchKey}
                 onChange={(e) => setQueryParams({...queryParams, searchKey: e.target.value, page: 1})}
             >
+                <option value="all">All</option>
                 <option value="first_name">FirstName</option>
                 <option value="last_name">LastName</option>
                 <option value="email">Email</option>
