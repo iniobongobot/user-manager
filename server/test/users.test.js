@@ -1,3 +1,4 @@
+/* global describe, it, expect, afterAll */
 import request from 'supertest';
 import { app } from '../src/app';
 import { sql } from '../src/utils/db';

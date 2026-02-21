@@ -5,7 +5,11 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    
+    defaults:
+      run:
+        working-directory: server
+    
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -27,7 +31,6 @@ jobs:
         run: npm install
 
       - name: Run Tests
-        # Step 2: Inject the experimental flag and DB credentials
         env:
           NODE_OPTIONS: "--experimental-vm-modules"
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
