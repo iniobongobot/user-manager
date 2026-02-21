@@ -65,7 +65,7 @@ jobs:
             email NVARCHAR(255) UNIQUE,
             gender NVARCHAR(50),
             status NVARCHAR(50),
-            request_hash NVARCHAR(255)
+            request_hash NVARCHAR(255) UNIQUE
           );"
 
       # TEST: Running Tests

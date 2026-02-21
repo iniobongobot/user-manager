@@ -4,15 +4,107 @@ import { v4 as uuidv4 } from 'uuid';
 import { validateRequest, userSchema } from './middleware/validate.js';
 import { generateHash } from './utils/hasher.js';
 import { poolPromise, sql } from './utils/db.js';
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 
-//*************************************************************************************
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'User Manager API',
+      version: '1.0.0',
+      description: 'A full-stack API for managing users and assets',
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+      },
+    ],
+  },
+  apis: ['./src/**/*.js', './*.js'],
+};
+
+const specs = swaggerJsdoc(swaggerOptions);
+app.use('/api/v3/docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+
 // This POST is for creating new records.
-app.post('/api/v2/users', validateRequest, async (req, res) => {
+
+/**
+ * @openapi
+ * /api/v3/users:
+ *   post:
+ *     summary: Create a new user
+ *     description: Validates input, generates a request hash, and inserts into MS SQL.
+ *     tags:
+ *       - Users
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - first_name
+ *               - last_name
+ *               - email
+ *               - gender
+ *               - status
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *                 example: "Clark"
+ *               last_name:
+ *                 type: string
+ *                 example: "Kent"
+ *               email:
+ *                 type: string
+ *                 example: "iobot1@sas.com"
+ *               gender:
+ *                 type: string
+ *                 enum: [Male, Female, Other]
+ *               status:
+ *                 type: string
+ *                 enum: [Active, Inactive]
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     first_name:
+ *                       type: string
+ *                     last_name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     gender:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     request_hash:
+ *                       type: string
+ *       409:
+ *         description: Conflict - Duplicate entry
+ *       500:
+ *         description: Internal Server Error
+ */
+app.post('/api/v3/users', validateRequest, async (req, res) => {
     try {
         const { value } = userSchema.validate(req.body);
         const { first_name, last_name, email, gender, status } = value;
@@ -56,9 +148,76 @@ app.post('/api/v2/users', validateRequest, async (req, res) => {
     }
 });
 
-
+//*********************************GET ALL ********************************************/
 //This GET is for retrieving ALL records.
-app.get('/api/v2/users', async (req, res) => {
+/**
+ * @openapi
+ * /api/v3/users:
+ *   get:
+ *     summary: Retrieve all users
+ *     description: Fetches all user records from the database.
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           description: Global search across first_name, last_name, email, gender, and status
+ *       - in: query
+ *         name: searchKey
+ *         schema:
+ *           type: string
+ *           enum: [first_name, last_name, email, gender, status, all]
+ *           description: Specify the column to search (use 'all' for global search)
+ *       - in: query    
+ *         name: searchValue
+ *         schema:
+ *           type: string
+ *           description: The value to search for in the specified column
+ *       - in: query
+ *         name: sortField
+ *         schema:
+ *           type: string
+ *           enum: [first_name, last_name, email, gender, status]
+ *           description: The field to sort by (default= first_name)
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           description: The sort order (default= ASC)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           description: Page number for pagination (default= 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           description: Number of records per page (default= 10)
+ *     responses:
+ *       200:
+ *         description: Users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *       400:
+ *         description: Invalid request parameters
+ *       500:
+ *         description: Database error occurred
+ */
+app.get('/api/v3/users', async (req, res) => {
 try {
         const { searchKey, searchValue, sortField = 'first_name', sortOrder = 'ASC', search } = req.query;
         const allowedColumns = ['first_name', 'last_name', 'email', 'gender', 'status', "all"];
@@ -87,7 +246,7 @@ try {
         const pool = await poolPromise;
         const request = pool.request();
 
-        // 2. Build the WHERE clause for Searching
+        // WHERE clause for Searching
         let whereClause = "";
         if (searchKey || searchValue) {
             if (!searchKey || !searchValue) {
@@ -153,9 +312,54 @@ try {
     }
 });
 
-
+// ******************************** GET ONE *********************************************/
 // This GET is for Fetching a single user by ID
-app.get('/api/v2/users/:id', async (req, res) => {
+/**
+ * @openapi
+ * /api/v3/users/{id}:
+ *   get:
+ *     summary: Retrieve a single user by ID
+ *     description: Fetches a specific user record from the database by User ID (UUID).
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           description: The UUID of the user to retrieve
+ *     responses:
+ *       200:
+ *         description: Users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 first_name:
+ *                   type: string
+ *                 last_name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 gender:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 requet_hash:
+ *                   type: string
+ *       400:
+ *         description: Invalid request parameters
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Database error occurred
+ */
+app.get('/api/v3/users/:id', async (req, res) => {
 try {
         const { id } = req.params;
 
@@ -194,8 +398,51 @@ try {
     }
 });
 
-
-app.delete('/api/v2/users/:id', async (req, res) => {
+/**
+ * @openapi
+ * /api/v3/users/{id}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     description: Deletes a specific user record from the database by User ID (UUID).
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           description: The UUID of the user to delete
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 method:
+ *                   type: string
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "91171017-2afc-4c8c-8f2a-5c0f8e0b3c4d"
+ *                     status:
+ *                       type: string
+ *                       example: "Deleted from SQL Server"
+ *       400:
+ *         description: Invalid request parameters
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Database error occurred
+ */
+app.delete('/api/v3/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -215,7 +462,6 @@ app.delete('/api/v2/users/:id', async (req, res) => {
             .query('DELETE FROM records WHERE id = @id');
 
         // Check if any row was actually deleted
-        // result.rowsAffected[0] tells us how many rows were removed
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({
                 error: "User Not Found",
@@ -240,25 +486,111 @@ app.delete('/api/v2/users/:id', async (req, res) => {
 });
 
 
-app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
+//******************************** PUT (UPDATE) ******************************** */
+/**
+ * @openapi
+ * /api/v3/users/{id}:
+ *   put:
+ *     summary: Update an existing user
+ *     description: Validates input, generates a request hash, and updates an existing user in MS SQL.
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           description: The UUID of the user to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - first_name
+ *               - last_name
+ *               - email
+ *               - gender
+ *               - status
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *                 example: "Clark"
+ *               last_name:
+ *                 type: string
+ *                 example: "Kent"
+ *               email:
+ *                 type: string
+ *                 example: "iobot1@sas.com"
+ *               gender:
+ *                 type: string
+ *                 enum: [Male, Female, Other]
+ *                 example: "Male"
+ *               status:
+ *                 type: string
+ *                 enum: [Active, Inactive]
+ *                 example: "Active"  
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "User updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 12345
+ *                     first_name:
+ *                       type: string
+ *                       example: "Clark"
+ *                     last_name:
+ *                       type: string
+ *                       example: "Kent"
+ *                     email:
+ *                       type: string
+ *                     gender:
+ *                       type: string
+ *                       example: "Male"
+ *                     status:
+ *                       type: string
+ *                       example: "Active"
+ *                     request_hash:
+ *                       type: string
+ *       400:
+ *         description: Invalid request parameters
+ *       404:
+ *         description: User not found
+ *       409:
+ *         description: Conflict - Duplicate entry
+ *       500:
+ *         description: Internal Server Error
+ */
+app.put('/api/v3/users/:id', validateRequest, async (req, res) => {
     try {
         const { id } = req.params;
         const { value } = userSchema.validate(req.body);
         const { first_name, last_name, email, gender, status } = value;
 
-        // 1. Gatekeeper: UUID Format Validation
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
             return res.status(400).json({ error: "Invalid ID Format" });
         }
 
-        // 2. Generate new hash based on updated data
         const   {status: _, ...hashBody} = value;
         const newHash = generateHash(hashBody);
 
         const pool = await poolPromise;
 
-        // 3. Execute Update
         const result = await pool.request()
             .input('id', sql.UniqueIdentifier, id)
             .input('fname', sql.NVarChar, first_name)
@@ -278,7 +610,6 @@ app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
                 WHERE id = @id
             `);
 
-        // 4. Check if user existed
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({
                 error: "User Not Found",
@@ -312,7 +643,7 @@ app.use((req, res) => {
         error: "Endpoint Not Found",
         method: req.method,
         path: req.originalUrl,
-        message: `The ${req.method} request to ${req.originalUrl} is invalid. If you are attempting to UPDATE or DELETE, ensure the numeric ID is appended to the URL (e.g., /api/v2/users/1).`
+        message: `The ${req.method} request to ${req.originalUrl} is invalid. If you are attempting to UPDATE or DELETE, ensure the numeric ID is appended to the URL (e.g., /api/v3/users/1).`
     });
 });
 

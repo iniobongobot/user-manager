@@ -11,7 +11,9 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/test/*.test.js"]
+    "testMatch": [
+      "**/test/*.test.js"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -27,6 +29,8 @@
     "lucide-react": "^0.575.0",
     "mssql": "^12.2.0",
     "recharts": "^3.7.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
