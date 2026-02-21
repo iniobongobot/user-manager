@@ -30,6 +30,15 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Wait for SQL Server and Create Database
+        run: |
+          echo "Waiting for SQL Server to accept connections..."
+          # This loop checks if the port is open before moving forward
+          timeout 60s bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/localhost/1433; do sleep 2; done'
+          echo "SQL Server is up! Creating database..."
+          # Create the DB so your app has somewhere to connect
+          docker exec $(docker ps -qf "ancestor=mcr.microsoft.com/mssql/server:2022-latest") /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${{ secrets.DB_PASSWORD }}" -C -Q "CREATE DATABASE UserAssetDB;"
+
       - name: Run Tests
         env:
           NODE_OPTIONS: "--experimental-vm-modules"
