@@ -1,302 +1,304 @@
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
-import { validateRequest, getAvailableKeys } from './middleware/validate.js';
+import { validateRequest, userSchema } from './middleware/validate.js';
 import { generateHash } from './utils/hasher.js';
+import { poolPromise, sql } from './utils/db.js';
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-//Temp Database
-let users = [{
-  id: "3fe75b97-68c7-4d95-b110-cc327fe3ab04",
-  first_name: "Desi",
-  last_name: "Christoforou",
-  email: "dchristoforou0@miibeian.gov.cn",
-  gender: "Male",
-  status: "Active",
-  requestHash: "01KHY6R6N0Q1VJF9T0EKXSWABP"
-}, {
-  id: "1a9aacc7-5292-4aeb-8cda-a1459472afa3",
-  first_name: "Skylar",
-  last_name: "Glenny",
-  email: "sglenny1@noaa.gov",
-  gender: "Male",
-  status: "Active",
-  requestHash: "01KHY6R6N3NQH9N3ZDPNYDRJ5Y"
-}, {
-  id: "957ddb3b-1bc2-4a83-b4d0-2547374b8043",
-  first_name: "Griffin",
-  last_name: "Gilffillan",
-  email: "ggilffillan2@yelp.com",
-  gender: "Male",
-  status: "Active",
-  requestHash: "01KHY6R6N4NAFKEC0Q4EAR2XZ7"
-}, {
-  id: "581a888d-fe76-4d90-9165-25aec9e37965",
-  first_name: "Wilmer",
-  last_name: "Crotch",
-  email: "wcrotch3@webs.com",
-  gender: "Male",
-  status: "Active",
-  requestHash: "01KHY6R6N55NNT3G9ZG4PMX751"
-}, {
-  id: "26bd74e6-2602-48e6-a036-9dd2903fccf4",
-  first_name: "Faith",
-  last_name: "Fitzackerley",
-  email: "ffitzackerley4@opensource.org",
-  gender: "Female",
-  status: "Inactive",
-  requestHash: "01KHY6R6N7V2G13BYBW047K3G8"
-}]
-let requestHashes = new Set();
 
+//*************************************************************************************
 // This POST is for creating new records.
-app.post('/api/v1/users', validateRequest, (req, res) => {
+app.post('/api/v2/users', validateRequest, async (req, res) => {
     try {
+        const { value } = userSchema.validate(req.body);
+        const { first_name, last_name, email, gender, status } = value;
+        
         const hash = generateHash(req.body);
 
-        // Check for duplicate request
-        if (requestHashes.has(hash)) {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('first_name', sql.NVarChar, first_name)
+            .input('last_name', sql.NVarChar, last_name)
+            .input('email', sql.NVarChar, email)
+            .input('gender', sql.NVarChar, gender)
+            .input('status', sql.NVarChar, status)
+            .input('hash', sql.NVarChar, hash)
+            .query(`
+                INSERT INTO records (first_name, last_name, email, gender, status, request_hash)
+                OUTPUT inserted.id
+                VALUES (@first_name, @last_name, @email, @gender, @status, @hash)
+            `);
+
+        // result.recordset will contain the output of the inserted.id
+        const newId = result.recordset[0].id;
+
+        res.status(201).json({
+            message: "User created successfully",
+            data: { id: newId, ...value, request_hash: hash }
+        });
+
+    } catch (err) {
+        // use unique constant error code, 2627 for ptimary key and 2601 for unique index
+        if (err.number === 2627 || err.number === 2601) {
             return res.status(409).json({
                 error: "Duplicate Request",
-                message: "An identical record already exists or was recently submitted."
+                message: "An identical record already exists in the database."
             });
         }
-        const userId = uuidv4();
-        const newUser = { id: userId, ...req.body, requestHash: hash };
-        console.log(newUser)
-        users.push(newUser);
-        requestHashes.add(hash);
 
-        res.status(201).json(newUser);
-    } catch (err) {
+        console.error("Post Error:", err);
         res.status(500).json({ error: "Internal Server Error", details: err.message });
     }
 });
 
 
 //This GET is for retrieving ALL records.
-app.get('/api/v1/users', (req, res) => {
-    try {
-        let results = [...users];
-        const { searchKey, searchValue, sort, order, limit, page } = req.query;
+app.get('/api/v2/users', async (req, res) => {
+try {
+        const { searchKey, searchValue, sortField = 'first_name', sortOrder = 'ASC' } = req.query;
+        const allowedColumns = ['id', 'first_name', 'last_name', 'email', 'gender', 'status', 'request_hash'];
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        
+        if (!allowedColumns.includes(sortField.toLowerCase())) {
+            return res.status(400).json({ 
+                error: `Invalid sort field: '${sortField}'. Allowed fields are: ${allowedColumns.join(', ')}` 
+            });
+        }
 
-        // This is my serach logic.
+        if (searchKey && !allowedColumns.includes(searchKey.toLowerCase())) {
+            return res.status(400).json({ 
+                error: `Invalid search key: '${searchKey}'. Allowed keys are: ${allowedColumns.join(', ')}` 
+            });
+        }
+
+
+        const validOrders = ['ASC', 'DESC'];
+        if (!validOrders.includes(sortOrder.toUpperCase())) {
+            return res.status(400).json({ error: "sortOrder must be 'ASC' or 'DESC'" });
+        }
+
+        const offset = (page - 1) * limit;
+        const pool = await poolPromise;
+        const request = pool.request();
+
+        // 2. Build the WHERE clause for Searching
+        let whereClause = "";
         if (searchKey || searchValue) {
             if (!searchKey || !searchValue) {
                 return res.status(400).json({ 
-                    error: "Invalid Search", 
-                    message: "Both 'searchKey' and 'searchValue' must be provided together." ,
-                    availableKeys: getAvailableKeys()
+                    error: "Both searchKey and searchValue must be provided together for searching." 
                 });
             }
+        }
 
-            // Validate that the searchKey is a valid property
-            const validSearchKeys = getAvailableKeys().concat(['id']); 
-            if (!validSearchKeys.includes(searchKey)) {
-                return res.status(400).json({ 
-                    error: "Invalid Search Key", 
-                    message: `You can only search by: ${validSearchKeys.join(', ')}` 
-                });
-            }
-
-            // Perform the filtered search
-            if (searchKey === 'id') {
-                results = results.filter(a => a.id === parseInt(searchValue));
+        if (searchKey && searchValue) {
+            const isExact = ['gender', 'status'].includes(searchKey.toLowerCase());
+            // i will implememnt paramatized queries for sql injection
+            if (isExact) {
+                whereClause = `WHERE ${searchKey} = @val`;
+                request.input('val', sql.NVarChar, searchValue);
             } else {
-                results = results.filter(a => {
-                    const itemValue = String(a[searchKey]).toLowerCase().trim();
-                    const searchTerm = searchValue.toLowerCase().trim();
-
-                    if (searchKey === 'gender' || searchKey === 'status') {
-                        return itemValue === searchTerm;
-                    }
-
-                    return itemValue.includes(searchTerm);
-                });
+                whereClause = `WHERE ${searchKey} LIKE @val`;
+                request.input('val', sql.NVarChar, `%${searchValue}%`);
             }
         }
 
-        // This is my sort logic. I can sort in ascending or descending order based on the query parameters.
-        if (sort) {
-            const sortOrder = order === 'desc' ? -1 : 1;
-            results.sort((a, b) => {
-                const valA = (a[sort] || '').toString().toLowerCase();
-                const valB = (b[sort] || '').toString().toLowerCase();
-                return valA < valB ? -1 * sortOrder : (valA > valB ? 1 * sortOrder : 0);
-            });
-        }
-        // This logic adds pagination to the response
-        const pageSize = parseInt(limit) || 10; 
-        const currentPage = parseInt(page) || 1;
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
+        // Separate query for Total Count so the frontend knows how many pages exist
+        const countQuery = `SELECT COUNT(*) as total FROM records ${whereClause}`;
 
-        const totalRecords = results.length;
-        const paginatedResults = results.slice(startIndex, endIndex);
+        const dataQuery = `
+            SELECT * FROM records 
+            ${whereClause} 
+            ORDER BY ${sortField} ${sortOrder} 
+            OFFSET ${offset} ROWS 
+            FETCH NEXT ${limit} ROWS ONLY`;
+
+        const countResult = await request.query(countQuery);
+        const dataResult = await request.query(dataQuery);
+
+        const totalRecords = countResult.recordset[0].total;
 
         res.json({
-            total: totalRecords,
-            page: currentPage,
-            limit: pageSize,
-            totalPages: Math.ceil(totalRecords / pageSize),
-            data: paginatedResults
+            data: dataResult.recordset,
+            meta: {
+                totalRecords,
+                totalPages: Math.ceil(totalRecords / limit),
+                currentPage: page,
+                limit
+            }
         });
+
     } catch (err) {
-        res.status(500).json({ error: "Internal Server Error", details: err.message });
+        console.error("SQL Error:", err);
+        res.status(500).json({ error: "Database error occurred" });
     }
 });
 
 
 // This GET is for Fetching a single user by ID
-app.get('/api/v1/users/:id', (req, res) => {
-    const rawId = req.params.id;
+app.get('/api/v2/users/:id', async (req, res) => {
+try {
+        const { id } = req.params;
 
-    // 1. Gatekeeper: Validate ID format (Numeric only)
-    // if (!/^\d+$/.test(rawId)) {
-    //     return res.status(400).json({
-    //         error: "Invalid ID Format",
-    //         method: req.method,
-    //         message: "The user ID must be a positive integer."
-    //     });
-    // }
-
-    // const numericId = parseInt(rawId, 10);
-
-    // 2. Search for the user
-    const user = users.find(a => a.id === rawId);
-
-    // 3. Handle Not Found
-    if (!user) {
-        return res.status(404).json({
-            error: "User Not Found",
-            method: req.method,
-            message: `No user found with ID ${rawId}`
-        });
-    }
-
-    // 4. Success Response
-    res.status(200).json({
-        data: user
-    });
-});
-
-
-app.delete('/api/v1/users/:id', (req, res) => {
-    const rawId = req.params.id;
-
-    // 1. Validate ID format BEFORE conversion
-    // We use a Regex to ensure the string contains ONLY digits
-    // if (!/^\d+$/.test(rawId)) {
-    //     return res.status(400).json({
-    //         error: "Invalid ID Format",
-    //         method: req.method,
-    //         message: "The user ID must be a positive integer."
-    //     });
-    // }
-
-    // 2. Safe to convert now
-    // const id = parseInt(rawId, 10);
-
-    const index = users.findIndex(a => a.id === rawId);
-
-    if (index === -1) {
-        return res.status(404).json(
-            { 
-                error: "User Not Found", 
-                message: `No user found with ID ${rawId}` 
+        // Regex checks for the standard 8-4-4-4-12 hex character format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({
+                error: "Invalid ID Format",
+                method: req.method,
+                message: "The user ID must be a valid UUID (e.g., 91171017-2afc...)"
             });
-    }
-
-    // Remove the hash from our Set so the record can be re-added in the future
-    const deletedUser = users[index];
-    requestHashes.delete(deletedUser.requestHash);
-
-    // Remove from array
-    users.splice(index, 1);
-
-    res.status(200).json({
-        message: "User successfully decommissioned",
-        method: req.method,
-        details: {
-            id: rawId,
-            hostname: deletedUser.hostname,
-            status: "Deleted"
         }
-    });
-});
 
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id', sql.UniqueIdentifier, id) 
+            .query('SELECT * FROM records WHERE id = @id');
 
-app.put('/api/v1/users/:id', validateRequest, (req, res) => {
-    const rawId = req.params.id;
-
-    // We use a Regex to ensure the string contains ONLY digits
-    // if (!/^\d+$/.test(rawId)) {
-    //     return res.status(400).json({
-    //         error: "Invalid ID Format",
-    //         method: req.method,
-    //         message: "The user ID must be a positive integer."
-    //     });
-    // }
-
-    // const id = parseInt(rawId, 10);
-
-    const index = users.findIndex(a => a.id === rawId);
-
-    if (!req.body || Object.keys(req.body).length === 0) {
-        return res.status(400).json({
-            error: "Empty Update",
-            method: req.method,
-            message: "No data provided for update. Please include the fields you wish to change."
-        });
-    }
-
-    if (index === -1) {
-        return res.status(404).json(
-            { 
-                error: "User Not Found", 
-                message: `No user found with ID ${rawId}` 
+        // Will be empty if no match is found
+        if (result.recordset.length === 0) {
+            return res.status(404).json({
+                error: "User Not Found",
+                method: req.method,
+                message: `No user found with ID ${id}`
             });
-    }
+        }
 
-    const oldUser = users[index];
-    
-    const newHash = generateHash(req.body); 
-
-    if (newHash !== oldUser.requestHash && requestHashes.has(newHash)) {
-        return res.status(409).json({
-            error: "Conflict",
-            message: "An user with this exact configuration already exists."
+        res.status(200).json({
+            data: result.recordset[0]
         });
+
+    } catch (err) {
+        console.error("Database Error:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
-
-    requestHashes.delete(oldUser.requestHash); 
-    requestHashes.add(newHash);   
-
-    users[index] = { 
-        ...oldUser, 
-        ...req.body, 
-        requestHash: newHash, // Save the new hash
-        id: rawId
-    };
-
-    res.json(users[index]);
 });
 
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+app.delete('/api/v2/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({
+                error: "Invalid ID Format",
+                method: req.method,
+                message: "The user ID must be a valid UUID."
+            });
+        }
+
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id', sql.UniqueIdentifier, id)
+            .query('DELETE FROM records WHERE id = @id');
+
+        // Check if any row was actually deleted
+        // result.rowsAffected[0] tells us how many rows were removed
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                error: "User Not Found",
+                method: req.method,
+                message: `No record found in the database with ID ${id}`
+            });
+        }
+
+        res.status(200).json({
+            message: "User successfully deleted",
+            method: req.method,
+            details: {
+                id: id,
+                status: "Deleted from SQL Server"
+            }
+        });
+
+    } catch (err) {
+        console.error("Delete Error:", err);
+        res.status(500).json({ error: "Failed to delete record from database" });
+    }
+});
+
+
+app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { value } = userSchema.validate(req.body);
+        const { first_name, last_name, email, gender, status } = value;
+
+        // 1. Gatekeeper: UUID Format Validation
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({ error: "Invalid ID Format" });
+        }
+
+        // 2. Generate new hash based on updated data
+        const newHash = generateHash(value);
+
+        const pool = await poolPromise;
+
+        // 3. Execute Update
+        const result = await pool.request()
+            .input('id', sql.UniqueIdentifier, id)
+            .input('fname', sql.NVarChar, first_name)
+            .input('lname', sql.NVarChar, last_name)
+            .input('email', sql.NVarChar, email)
+            .input('gender', sql.NVarChar, gender)
+            .input('status', sql.NVarChar, status)
+            .input('hash', sql.NVarChar, newHash)
+            .query(`
+                UPDATE records 
+                SET first_name = @fname, 
+                    last_name = @lname, 
+                    email = @email, 
+                    gender = @gender, 
+                    status = @status,
+                    request_hash = @hash
+                WHERE id = @id
+            `);
+
+        // 4. Check if user existed
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                error: "User Not Found",
+                message: `No user found with ID ${id}`
+            });
+        }
+
+        res.status(200).json({
+            message: "User updated successfully",
+            data: { id, ...req.body, request_hash: newHash }
+        });
+
+    } catch (err) {
+        // Handle Duplicate Hash (if they change data to match ANOTHER existing user)
+        if (err.number === 2627 || err.number === 2601) {
+            return res.status(409).json({
+                error: "Conflict",
+                message: "Another user with this exact configuration already exists."
+            });
+        }
+        console.error("Update Error:", err);
+        res.status(500).json({ error: "Internal Server Error", message: err.message });
+    }
+});
+
+
+// ************************************************************************************
 
 app.use((req, res) => {
     res.status(404).json({
         error: "Endpoint Not Found",
         method: req.method,
         path: req.originalUrl,
-        message: `The ${req.method} request to ${req.originalUrl} is invalid. If you are attempting to UPDATE or DELETE, ensure the numeric ID is appended to the URL (e.g., /api/v1/users/1).`
+        message: `The ${req.method} request to ${req.originalUrl} is invalid. If you are attempting to UPDATE or DELETE, ensure the numeric ID is appended to the URL (e.g., /api/v2/users/1).`
     });
 });
-
 
 export { app };
