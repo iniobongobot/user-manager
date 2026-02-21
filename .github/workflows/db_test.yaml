@@ -43,6 +43,7 @@ jobs:
         env:
           NODE_OPTIONS: "--experimental-vm-modules"
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_USER: "sa"
           DB_SERVER: "localhost"
           DB_NAME: "UserAssetDB"
           NODE_ENV: "test"
