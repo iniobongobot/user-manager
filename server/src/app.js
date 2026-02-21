@@ -17,7 +17,8 @@ app.post('/api/v2/users', validateRequest, async (req, res) => {
         const { value } = userSchema.validate(req.body);
         const { first_name, last_name, email, gender, status } = value;
         
-        const hash = generateHash(req.body);
+        const   {status: _, ...hashBody} = req.body
+        const hash = generateHash(hashBody);
 
         const pool = await poolPromise;
         const result = await pool.request()
@@ -59,8 +60,8 @@ app.post('/api/v2/users', validateRequest, async (req, res) => {
 //This GET is for retrieving ALL records.
 app.get('/api/v2/users', async (req, res) => {
 try {
-        const { searchKey, searchValue, sortField = 'first_name', sortOrder = 'ASC' } = req.query;
-        const allowedColumns = ['id', 'first_name', 'last_name', 'email', 'gender', 'status', 'request_hash'];
+        const { searchKey, searchValue, sortField = 'first_name', sortOrder = 'ASC', search } = req.query;
+        const allowedColumns = ['first_name', 'last_name', 'email', 'gender', 'status', "all"];
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         
@@ -96,8 +97,20 @@ try {
             }
         }
 
-        if (searchKey && searchValue) {
-            const isExact = ['gender', 'status'].includes(searchKey.toLowerCase());
+        if (search || searchKey === 'all') {
+            const finalSearch = searchValue || search;
+            whereClause = `WHERE first_name LIKE @search 
+            OR last_name LIKE @search 
+            OR email LIKE @search
+            OR gender = @exact
+            OR status = @exact`;
+            request.input('search', sql.NVarChar, `%${finalSearch}%`);
+            request.input('exact', sql.NVarChar, finalSearch);
+        }
+
+        else if (searchKey && searchValue) {
+            const normalizedKey = searchKey.toLowerCase();
+            const isExact = ['gender', 'status'].includes(normalizedKey);
             // i will implememnt paramatized queries for sql injection
             if (isExact) {
                 whereClause = `WHERE ${searchKey} = @val`;
@@ -106,6 +119,8 @@ try {
                 whereClause = `WHERE ${searchKey} LIKE @val`;
                 request.input('val', sql.NVarChar, `%${searchValue}%`);
             }
+        } else {
+                whereClause = "";
         }
 
         // Separate query for Total Count so the frontend knows how many pages exist
@@ -117,7 +132,6 @@ try {
             ORDER BY ${sortField} ${sortOrder} 
             OFFSET ${offset} ROWS 
             FETCH NEXT ${limit} ROWS ONLY`;
-
         const countResult = await request.query(countQuery);
         const dataResult = await request.query(dataQuery);
 
@@ -239,7 +253,8 @@ app.put('/api/v2/users/:id', validateRequest, async (req, res) => {
         }
 
         // 2. Generate new hash based on updated data
-        const newHash = generateHash(value);
+        const   {status: _, ...hashBody} = value;
+        const newHash = generateHash(hashBody);
 
         const pool = await poolPromise;
 
