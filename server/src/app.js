@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { validateRequest, userSchema } from './middleware/validate.js';
 import { generateHash } from './utils/hasher.js';
 import { poolPromise, sql } from './utils/db.js';
+import { sanitizeString } from './utils/sanitizer.js';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
@@ -114,8 +115,8 @@ app.post('/api/v3/users', validateRequest, async (req, res) => {
 
         const pool = await poolPromise;
         const result = await pool.request()
-            .input('first_name', sql.NVarChar, first_name)
-            .input('last_name', sql.NVarChar, last_name)
+            .input('first_name', sql.NVarChar, sanitizeString(first_name))
+            .input('last_name', sql.NVarChar, sanitizeString(last_name))
             .input('email', sql.NVarChar, email)
             .input('gender', sql.NVarChar, gender)
             .input('status', sql.NVarChar, status)
@@ -593,8 +594,8 @@ app.put('/api/v3/users/:id', validateRequest, async (req, res) => {
 
         const result = await pool.request()
             .input('id', sql.UniqueIdentifier, id)
-            .input('fname', sql.NVarChar, first_name)
-            .input('lname', sql.NVarChar, last_name)
+            .input('fname', sql.NVarChar, sanitizeString(first_name))
+            .input('lname', sql.NVarChar, sanitizeString(last_name))
             .input('email', sql.NVarChar, email)
             .input('gender', sql.NVarChar, gender)
             .input('status', sql.NVarChar, status)
