@@ -52,3 +52,7 @@ Version 3 introduces test cases, github workflows and a swagger
 git clone [https://github.com/iniobongobot/user-manager.git](https://github.com/iniobongobot/user-manager.git)
 cd user-manager
 npm run dev
+
+### 2. Test
+cd server
+npm run test
