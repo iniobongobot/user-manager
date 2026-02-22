@@ -2,8 +2,6 @@
 
 A User tracking application built with **React (Vite)** and **Node.js (Express)**. Developed as part of a technical assessment for SAS.
 
-Version 2 introduces a MS SQL Server database to hold user records
-Version 3 introduces test cases, github workflows and a swagger
 
 ## Key Features
 * **CRUD:** Create, Read, Update, and Delete.
