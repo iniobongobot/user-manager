@@ -214,9 +214,9 @@ app.post('/api/v3/users', validateRequest, async (req, res) => {
  *                     id:
  *                       type: integer
  *       400:
- *         description: Invalid request parameters
+ *         description: Bad Request
  *       500:
- *         description: Database error occurred
+ *         description: Internal Server Error
  */
 app.get('/api/v3/users', async (req, res) => {
 try {
@@ -227,20 +227,22 @@ try {
         
         if (!allowedColumns.includes(sortField.toLowerCase())) {
             return res.status(400).json({ 
-                error: `Invalid sort field: '${sortField}'. Allowed fields are: ${allowedColumns.join(', ')}` 
+                error: "Bad Request",
+                message: `Invalid sort field: '${sortField}'. Allowed fields are: ${allowedColumns.join(', ')}` 
             });
         }
 
         if (searchKey && !allowedColumns.includes(searchKey.toLowerCase())) {
             return res.status(400).json({ 
-                error: `Invalid search key: '${searchKey}'. Allowed keys are: ${allowedColumns.join(', ')}` 
+                error: "Bad Request",
+                message: `Invalid search key: '${searchKey}'. Allowed keys are: ${allowedColumns.join(', ')}` 
             });
         }
 
 
         const validOrders = ['ASC', 'DESC'];
         if (!validOrders.includes(sortOrder.toUpperCase())) {
-            return res.status(400).json({ error: "sortOrder must be 'ASC' or 'DESC'" });
+            return res.status(400).json({ error: "Bad Request", message: "sortOrder must be 'ASC' or 'DESC'" });
         }
 
         const offset = (page - 1) * limit;
@@ -252,7 +254,8 @@ try {
         if (searchKey || searchValue) {
             if (!searchKey || !searchValue) {
                 return res.status(400).json({ 
-                    error: "Both searchKey and searchValue must be provided together for searching." 
+                    error: "Bad Request",
+                    message: "Both searchKey and searchValue must be provided together for searching." 
                 });
             }
         }
@@ -309,7 +312,7 @@ try {
 
     } catch (err) {
         console.error("SQL Error:", err);
-        res.status(500).json({ error: "Database error occurred" });
+        res.status(500).json({ error: "Internal Server Error", message: err.message });
     }
 });
 
@@ -354,11 +357,11 @@ try {
  *                 requet_hash:
  *                   type: string
  *       400:
- *         description: Invalid request parameters
+ *         description: Bad Request
  *       404:
  *         description: User not found
  *       500:
- *         description: Database error occurred
+ *         description: Internal Server Error
  */
 app.get('/api/v3/users/:id', async (req, res) => {
 try {
@@ -369,7 +372,7 @@ try {
         
         if (!uuidRegex.test(id)) {
             return res.status(400).json({
-                error: "Invalid ID Format",
+                error: "Bad Request",
                 method: req.method,
                 message: "The user ID must be a valid UUID (e.g., 91171017-2afc...)"
             });
@@ -395,7 +398,7 @@ try {
 
     } catch (err) {
         console.error("Database Error:", err);
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({ error: "Internal Server Error", message: "Failed to retrieve record from database with error: " + err.message });
     }
 });
 
@@ -437,11 +440,11 @@ try {
  *                       type: string
  *                       example: "Deleted from SQL Server"
  *       400:
- *         description: Invalid request parameters
+ *         description: Bad Request
  *       404:
  *         description: User not found
  *       500:
- *         description: Database error occurred
+ *         description: Internal Server Error
  */
 app.delete('/api/v3/users/:id', async (req, res) => {
     try {
@@ -451,7 +454,7 @@ app.delete('/api/v3/users/:id', async (req, res) => {
         
         if (!uuidRegex.test(id)) {
             return res.status(400).json({
-                error: "Invalid ID Format",
+                error: "Bad Request",
                 method: req.method,
                 message: "The user ID must be a valid UUID."
             });
@@ -482,7 +485,7 @@ app.delete('/api/v3/users/:id', async (req, res) => {
 
     } catch (err) {
         console.error("Delete Error:", err);
-        res.status(500).json({ error: "Failed to delete record from database" });
+        res.status(500).json({ error: "Internal Server Error", message: "Failed to delete record from database with error: " + err.message });
     }
 });
 
@@ -568,7 +571,7 @@ app.delete('/api/v3/users/:id', async (req, res) => {
  *                     request_hash:
  *                       type: string
  *       400:
- *         description: Invalid request parameters
+ *         description: Bad Request
  *       404:
  *         description: User not found
  *       409:
@@ -584,7 +587,7 @@ app.put('/api/v3/users/:id', validateRequest, async (req, res) => {
 
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-            return res.status(400).json({ error: "Invalid ID Format" });
+            return res.status(400).json({error: "Bad Request",  message: "Invalid ID Format" });
         }
 
         const   {status: _, ...hashBody} = value;
