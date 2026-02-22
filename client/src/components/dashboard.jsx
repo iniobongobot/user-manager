@@ -78,6 +78,7 @@ const UserManager = () => {
         } catch (err) {
             console.log(formData)
             console.log(err.response?.data?.message)
+            setShowModal(false);
             setModalInfo({
                 show: true,
                 title: "Error",

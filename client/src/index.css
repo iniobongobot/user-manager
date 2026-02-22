@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.error-modal {
+    z-index: 1070 !important;
+}
+
+.modal-backdrop:last-child {
+    z-index: 1065 !important;
+}

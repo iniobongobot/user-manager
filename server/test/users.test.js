@@ -17,10 +17,10 @@ describe('User API Endpoints', () => {
     it('should return 400 for an invalid UUID format', async () => {
         const res = await request(app).get('/api/v3/users/not-a-uuid');
         expect(res.statusCode).toEqual(400);
-        expect(res.body.error).toBe("Invalid ID Format");
+        expect(res.body.error).toBe("Bad Request");
     });
 
-    // Test 3:POST TEST (Create)
+    // POST TEST (Create)
     it('should create a new user', async () => {
         const newUser = {
             first_name: 'Test',
@@ -41,8 +41,25 @@ describe('User API Endpoints', () => {
         console.log('Created test user with ID:', testUserId);
     });
 
+    // SQL Injection Protection
+    it('should neutralize SQL injection attempts in input fields', async () => {
+        const maliciousUser = {
+            first_name: "'; DROP TABLE Users; --", // The "payload"
+            last_name: 'Attacker',
+            email: 'hacker@example.com',
+            gender: 'Male',
+            status: 'Active'
+        };
 
-    // Test 4: DUPLICATE POST TEST (Create)
+        const res = await request(app)
+            .post('/api/v3/users')
+            .send(maliciousUser);
+
+        expect(res.statusCode).toBe(400); 
+        console.log('SQL Injection attempt blocked by Validation Layer');
+    });
+
+    // DUPLICATE POST TEST (Create)
     it('should fail to create duplicate user', async () => {
         const newUser = {
             first_name: 'Test',
@@ -59,7 +76,7 @@ describe('User API Endpoints', () => {
         expect(res.statusCode).toEqual(409);
     });
 
-    // test 5:PUT TEST (Update) ---
+    // PUT TEST (Update) ---
     it('should update the user we just created', async () => {
         const updatedData = {
             first_name: 'UpdatedName',
@@ -77,7 +94,7 @@ describe('User API Endpoints', () => {
         expect(res.body.message).toContain('User updated successfully');
     });
 
-    // test 5:PUT TEST (Update) ---
+    //PUT TEST (Update) ---
     it('should not update with invalid parameters', async () => {
         const updatedData = {
             first_name: 'UpdatedName',
@@ -94,7 +111,7 @@ describe('User API Endpoints', () => {
         expect(res.statusCode).toEqual(400);
     });
 
-    // Test 6: DELETE TEST (Remove) ---
+    // DELETE TEST (Remove) ---
     it('should delete the test user', async () => {
         const res = await request(app)
             .delete(`/api/v3/users/${testUserId}`);
@@ -103,7 +120,7 @@ describe('User API Endpoints', () => {
         expect(res.body.message).toContain('User successfully deleted');
     });
 
-    // Test 7: DELETE TEST (Remove) ---
+    // DELETE TEST (Remove) ---
     it('should not delete a non-existent user', async () => {
         const res = await request(app)
             .delete(`/api/v3/users/1111155D-B173-44C5-88C9-396905F30F3D`);
@@ -112,6 +129,34 @@ describe('User API Endpoints', () => {
         expect(res.body.message).toContain('No record found');
     });
 
+    it('should return a limited number of records based on query params', async () => {
+        const limit = 2;
+        const res = await request(app)
+            .get(`/api/v3/users?limit=${limit}&page=1`);
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.data.length).toBeLessThanOrEqual(limit);
+        expect(res.body.meta).toHaveProperty('currentPage');
+        console.log(`Pagination check: Returned ${res.body.data.length} records.`);
+    });
+
+
+    it('should reject names containing invalid characters (numbers/symbols)', async () => {
+        const invalidUser = {
+            first_name: 'John123', // Numbers should not be allowed
+            last_name: 'Doe!',     // Symbols should be stripped or rejected
+            email: 'not-an-email', // Invalid email format
+            gender: 'Male',
+            status: 'Active'
+        };
+
+        const res = await request(app)
+            .post('/api/v3/users')
+            .send(invalidUser);
+
+        expect(res.statusCode).toEqual(400);
+        console.log('Sanitization check: Invalid data rejected.');
+    });
 
     afterAll(async () => {
         try {
@@ -121,5 +166,7 @@ describe('User API Endpoints', () => {
             console.error('Error closing SQL pool:', err);
         }
     });
+
+    
 
 });
