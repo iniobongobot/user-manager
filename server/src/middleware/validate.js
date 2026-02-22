@@ -6,12 +6,8 @@ import Joi from 'joi';
 
 
 const userSchema = Joi.object({
-    first_name: Joi.string().pattern(/^[a-zA-Z\s\'-]+$/).min(2).max(30).required().messages({
-            'string.pattern.base': 'Name can only contain letters, spaces, hyphens, and apostrophes.'
-        }),
-    last_name: Joi.string().pattern(/^[a-zA-Z\s\'-]+$/).min(2).max(30).required().messages({
-            'string.pattern.base': 'Name can only contain letters, spaces, hyphens, and apostrophes.'
-        }),
+    first_name: Joi.string().pattern(/^[a-zA-Z\s'-]+$/).min(2).max(30).required().messages({'string.pattern.base': 'Name can only contain letters, spaces, hyphens, and apostrophes.'}),
+    last_name: Joi.string().pattern(/^[a-zA-Z\s'-]+$/).min(2).max(30).required().messages({ 'string.pattern.base': 'Name can only contain letters, spaces, hyphens, and apostrophes.' }),
     email: Joi.string().email().required(),
     gender: Joi.string().valid('Male', 'Female', 'Non-Binary').required(),
     status: Joi.string().valid('Active', 'Inactive').default('Active')
