@@ -2,7 +2,7 @@
   "name": "user-manager-api",
   "type": "module",
   "version": "1.0.0",
-  "main": "src/app.jsx",
+  "main": "src/App.jsx",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
