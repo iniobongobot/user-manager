@@ -23,7 +23,7 @@ Version 3 introduces test cases, github workflows and a swagger
 
 ## Tech Stack
 * **Frontend:** 
-        * React 18, 
+        - React 18, 
         - Vite, 
         - Bootstrap 5, 
         - Lucide Icons.
