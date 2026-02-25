@@ -2,6 +2,7 @@
 
 A User tracking application built with **React (Vite)** and **Node.js (Express)**. Developed as part of a technical assessment for SAS.
 
+Version 1 focuses on having a basic REST Api and UI
 Version 2 introduces a MS SQL Server database to hold user records
 Version 3 introduces test cases, github workflows and a swagger
 
@@ -22,28 +23,20 @@ Version 3 introduces test cases, github workflows and a swagger
 
 ## Tech Stack
 - **Frontend:** 
-        - React 18, 
-        - Vite, 
-        - Bootstrap 5, 
-        - Lucide Icons.
-        - Axios
+        * React 18, 
+        * Vite, 
+        * Bootstrap 5, 
+        * Lucide Icons.
+        * Axios
 - **Backend:** 
-        - Node.js, 
-        - Express, 
-        - Joi (middleware-based validation), 
-        - crypto (Request Hashing).
-        - swagger (for documentation)
+        * Node.js, 
+        * Express, 
+        * Joi (middleware-based validation), 
+        * crypto (Request Hashing).
+        * swagger (for documentation)
 
 - **DATABASE**:
         - MS SQL SERVER - Relational architecture with indexing on searchable fields
-        - SETUP:
-          - id (uniqueidentifier, PK)
-          - first_name (nvarchar)
-          - last_name (nvarchar)
-          - email (nvarchar, Unique)
-          - gender (nvarchar)
-          - status (nvarchar)
-          - request_hash (nvarchar, Unique)
 
 
 ## 📦 Installation & Setup
