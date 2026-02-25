@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./server
+    container_name: express_api
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_USER=iobot
+      - DB_PASSWORD=Marshal
+      - DB_SERVER=host.docker.internal
+      - DB_NAME=UserAssetDB
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build: ./client
+    container_name: vite_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000
