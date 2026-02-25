@@ -49,10 +49,42 @@ Version 3 introduces test cases, github workflows and a swagger
 ## 📦 Installation & Setup
 
 ### 1. Clone the repository
-git clone [https://github.com/iniobongobot/user-manager.git](https://github.com/iniobongobot/user-manager.git)
-cd user-manager
-npm run dev
+        git clone [https://github.com/iniobongobot/user-manager.git](https://github.com/iniobongobot/user-manager.git)
+        cd user-manager
+        npm run dev
 
-### 2. Test
-cd server
-npm run test
+### 2. Database Setup
+
+        This project uses **Microsoft SQL Server**. Follow the steps below to initialize the database and the required table.
+
+        Run the following SQL script in your SQL Server Management Studio (SSMS) or via your preferred CLI tool to create the database and the `Records` table.
+
+        ```sql
+        -- Create the Database
+        IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'UserAssetDB')
+        BEGIN
+        CREATE DATABASE UserAssetDB;
+        END
+        GO
+
+        USE UserAssetDB;
+        GO
+
+        -- Create the Records Table
+        IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Records]') AND type in (N'U'))
+        BEGIN
+        CREATE TABLE Records (
+                id           UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+                first_name   NVARCHAR(50) NOT NULL,
+                last_name    NVARCHAR(50) NOT NULL,
+                email        NVARCHAR(100) NOT NULL UNIQUE,
+                gender       NVARCHAR(50) NOT NULL,
+                status       NVARCHAR(50) NOT NULL,
+                request_hash NVARCHAR(128) NOT NULL UNIQUE 
+        );
+        END
+        GO
+
+### 3. Test
+        cd server
+        npm run test

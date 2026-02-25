@@ -20,7 +20,7 @@ const swaggerOptions = {
     info: {
       title: 'User Manager API',
       version: '1.0.0',
-      description: 'A full-stack API for managing users and assets',
+      description: 'A full-stack API for managing users',
     },
     servers: [
       {
